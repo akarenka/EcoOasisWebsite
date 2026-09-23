@@ -1,0 +1,2368 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>末日重構：綠洲避難所 (Eco-Oasis Survival)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Tone.js for Web Audio SFX -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Noto+Sans+TC:wght@400;600;800&display=swap');
+    
+    * {
+      font-family: 'Chakra Petch', 'Noto Sans TC', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Custom wasteland & neon aesthetics */
+    .bg-wasteland {
+      background: radial-gradient(circle at 50% 20%, #1e261d 0%, #0d120e 70%, #060806 100%);
+    }
+
+    .neon-border-green {
+      box-shadow: 0 0 15px rgba(52, 211, 153, 0.25), inset 0 0 10px rgba(52, 211, 153, 0.1);
+    }
+    
+    .neon-border-gold {
+      box-shadow: 0 0 15px rgba(251, 191, 36, 0.25), inset 0 0 10px rgba(251, 191, 36, 0.1);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111827;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10B981;
+    }
+
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.9; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.02); }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 3s infinite ease-in-out;
+    }
+
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(1000%); }
+    }
+    .scanline-effect::after {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      z-index: 20;
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-wasteland text-gray-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-black overflow-x-hidden">
+
+  <header class="w-full bg-black/60 backdrop-blur-md border-b border-emerald-900/60 sticky top-0 z-40 px-4 py-2.5 shadow-lg">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Title & Day Tracker -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-lime-600 flex items-center justify-center text-black font-black text-xl shadow-lg shadow-emerald-500/20">
+          <i class="fa-solid fa-leaf"></i>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-base sm:text-lg tracking-wider bg-gradient-to-r from-emerald-400 via-teal-200 to-lime-400 bg-clip-text text-transparent flex items-center gap-2">
+            末日重構：綠洲避難所
+            <span class="text-xs px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-600/40 text-emerald-400 font-normal">v1.2</span>
+          </h1>
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            <span>倖存第 <strong id="ui-day-count" class="text-emerald-300 font-bold">1</strong> 天</span>
+            <span>•</span>
+            <span id="ui-weather" class="text-amber-300 font-medium"><i class="fa-solid fa-smog mr-1"></i>輻射酸雨</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resource Counters -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm font-semibold">
+        <!-- Gold Coins -->
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-950/40 border border-yellow-600/40 text-yellow-300 shadow-inner">
+          <i class="fa-solid fa-coins text-yellow-400 text-sm"></i>
+          <span id="ui-gold" class="font-bold">350</span>
+          <span class="text-[10px] text-yellow-500">金幣</span>
+        </div>
+
+        <!-- Eco Points -->
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-600/40 text-emerald-300 shadow-inner">
+          <i class="fa-solid fa-seedling text-emerald-400 text-sm"></i>
+          <span id="ui-eco-points" class="font-bold">80</span>
+          <span class="text-[10px] text-emerald-500">生態點</span>
+        </div>
+
+        <!-- Purified Water -->
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/40 border border-cyan-600/40 text-cyan-300 shadow-inner">
+          <i class="fa-solid fa-droplet text-cyan-400 text-sm"></i>
+          <span id="ui-water" class="font-bold">25</span>
+          <span class="text-[10px] text-cyan-500">淨水</span>
+        </div>
+
+        <!-- Terraforming Progress Pill -->
+        <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-zinc-700">
+          <span class="text-xs text-gray-400">綠洲淨化率:</span>
+          <div class="w-24 bg-zinc-800 h-2.5 rounded-full overflow-hidden border border-zinc-700">
+            <div id="ui-terra-bar" class="bg-gradient-to-r from-yellow-500 via-emerald-500 to-lime-400 h-full w-[15%] transition-all duration-700"></div>
+          </div>
+          <span id="ui-terra-percent" class="text-xs font-bold text-emerald-400">15%</span>
+        </div>
+
+        <!-- Google/Gmail User Profile Button -->
+        <button id="auth-btn" onclick="openAuthModal()" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-gray-200 border border-neutral-600 transition shadow-md active:scale-95">
+          <img id="user-avatar" src="https://placehold.co/32x32/1e293b/38bdf8?text=G" alt="Avatar" class="w-6 h-6 rounded-full object-cover border border-gray-500">
+          <span id="user-display-name" class="text-xs font-medium max-w-[100px] truncate">登入 Gmail</span>
+        </button>
+
+        <!-- Audio Mute Toggle -->
+        <button onclick="toggleAudio()" class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-gray-300 flex items-center justify-center text-xs transition">
+          <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col gap-5">
+    
+    <!-- Environment Status Banner -->
+    <section id="env-banner" class="relative rounded-2xl overflow-hidden border border-emerald-900/60 p-5 bg-gradient-to-r from-zinc-950 via-zinc-900/90 to-emerald-950/40 shadow-xl">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span id="env-badge" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              <i class="fa-solid fa-biohazard mr-1"></i>廢土一級重度污染
+            </span>
+            <span class="text-xs text-gray-400">氣候：酸腐降雨頻繁</span>
+          </div>
+          <h2 id="env-headline" class="text-lg sm:text-xl font-black text-white">啟動重構協定：淨化土壤與水源，開闢第一片溫室</h2>
+          <p id="env-desc" class="text-xs sm:text-sm text-gray-300 max-w-2xl">
+            末日核冬過後，地表充滿毒素。種植抗輻射作物、飼養變異牲畜並透過探索小遊戲搜集零件，逐步將這座避難所改造為永續生態綠洲！
+          </p>
+        </div>
+        <!-- Next Day & Quick Collect Button -->
+        <div class="flex items-center gap-3">
+          <button onclick="advanceDay()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-700/30 flex items-center gap-2 active:scale-95 transition">
+            <i class="fa-solid fa-forward-step"></i>
+            進入下一天 (日落結算)
+          </button>
+        </div>
+      </div>
+      <!-- Background Graphic Accents -->
+      <div class="absolute -right-8 -bottom-10 opacity-10 pointer-events-none text-9xl text-emerald-400">
+        <i class="fa-solid fa-tree"></i>
+      </div>
+    </section>
+
+    <!-- Main Navigation Tab Pills -->
+    <div class="flex overflow-x-auto pb-1 gap-2 border-b border-zinc-800">
+      <button onclick="switchTab('map')" id="tab-map-btn" class="tab-btn active px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 transition whitespace-nowrap">
+        <i class="fa-solid fa-cubes text-emerald-400"></i> 四向立體地圖 (4D/45°視角)
+      </button>
+      <button onclick="switchTab('farm')" id="tab-farm-btn" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        <i class="fa-solid fa-wheat-awn"></i> 農場種植區 (<span id="count-farm-ready">0</span> 可收穫)
+      </button>
+      <button onclick="switchTab('ranch')" id="tab-ranch-btn" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        <i class="fa-solid fa-paw"></i> 畜牧牧場區
+      </button>
+      <button onclick="switchTab('minigame')" id="tab-minigame-btn" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-gray-200 transition whitespace-nowrap relative">
+        <i class="fa-solid fa-gamepad text-amber-400"></i> 荒野物資回收 (小遊戲)
+        <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+      </button>
+      <button onclick="switchTab('market')" id="tab-market-btn" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        <i class="fa-solid fa-shop text-yellow-400"></i> 廢土交易所
+      </button>
+      <button onclick="switchTab('terra')" id="tab-terra-btn" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        <i class="fa-solid fa-earth-americas text-blue-400"></i> 環境改造工程
+      </button>
+      <button onclick="switchTab('camper')" id="tab-camper-btn" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-gray-200 transition whitespace-nowrap">
+        <i class="fa-solid fa-caravan text-amber-400"></i> 移動基地生活艙 (Van Life)
+      </button>
+    </div>
+
+    <!-- TAB 0: 4D 等距立體地圖 (Isometric 4-Direction Map View) -->
+    <section id="tab-map" class="tab-pane block space-y-3">
+      <!-- Map Controls Header -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-zinc-950/80 p-3 rounded-2xl border border-zinc-800 shadow-lg">
+        <!-- 4-Direction Rotation Angle Buttons -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-xs text-gray-400 mr-1 flex items-center gap-1">
+            <i class="fa-solid fa-compass text-emerald-400"></i> 視角四向旋轉:
+          </span>
+          <button onclick="rotateMapDirection(-1)" class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-gray-200 text-xs font-bold border border-zinc-700 active:scale-95 transition" title="逆時針轉 90 度">
+            <i class="fa-solid fa-rotate-left mr-1"></i> 逆轉90°
+          </button>
+          
+          <div class="inline-flex rounded-lg bg-zinc-900 p-0.5 border border-zinc-700 text-xs">
+            <button onclick="setMapDirection(0)" id="dir-btn-0" class="px-2 py-1 rounded font-bold bg-emerald-600 text-white transition">0° 東南</button>
+            <button onclick="setMapDirection(1)" id="dir-btn-1" class="px-2 py-1 rounded font-bold text-gray-400 hover:text-white transition">90° 西南</button>
+            <button onclick="setMapDirection(2)" id="dir-btn-2" class="px-2 py-1 rounded font-bold text-gray-400 hover:text-white transition">180° 西北</button>
+            <button onclick="setMapDirection(3)" id="dir-btn-3" class="px-2 py-1 rounded font-bold text-gray-400 hover:text-white transition">270° 東北</button>
+          </div>
+
+          <button onclick="rotateMapDirection(1)" class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-gray-200 text-xs font-bold border border-zinc-700 active:scale-95 transition" title="順時針轉 90 度">
+            <i class="fa-solid fa-rotate-right mr-1"></i> 順轉90°
+          </button>
+        </div>
+
+        <!-- Zoom & Pitch Controls -->
+        <div class="flex items-center gap-2">
+          <div class="inline-flex rounded-lg bg-zinc-900 border border-zinc-700 overflow-hidden text-xs">
+            <button onclick="zoomMap(-0.15)" class="px-2.5 py-1 text-gray-300 hover:bg-zinc-800 active:scale-95 transition" title="縮小">
+              <i class="fa-solid fa-minus"></i>
+            </button>
+            <button onclick="resetMapCamera()" class="px-2.5 py-1 text-emerald-400 font-semibold hover:bg-zinc-800 border-x border-zinc-700 transition" title="重設鏡頭">
+              重置鏡頭
+            </button>
+            <button onclick="zoomMap(0.15)" class="px-2.5 py-1 text-gray-300 hover:bg-zinc-800 active:scale-95 transition" title="放大">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+          <button onclick="toggleMapPitch()" id="pitch-btn" class="px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-cyan-300 border border-zinc-700 transition">
+            <i class="fa-solid fa-cube mr-1"></i>45°等軸俯角
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Isometric Viewport Container -->
+      <div class="relative w-full h-[520px] sm:h-[580px] bg-gradient-to-b from-[#0d1310] via-[#090d0b] to-[#050705] rounded-2xl border border-emerald-900/60 overflow-hidden shadow-2xl">
+        <!-- Isometric Canvas -->
+        <canvas id="iso-map-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+
+        <!-- Top-Left Floating Info / Compass -->
+        <div class="absolute top-3 left-3 pointer-events-none flex flex-col gap-1 z-20">
+          <div class="px-3 py-1.5 rounded-xl bg-black/70 backdrop-blur-md border border-emerald-500/40 text-xs text-white shadow-lg flex items-center gap-2">
+            <div id="compass-indicator" class="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-400 flex items-center justify-center text-[10px] text-emerald-300 transform transition-transform duration-500">
+              <i class="fa-solid fa-location-arrow"></i>
+            </div>
+            <span>當前朝向：<strong id="iso-dir-label" class="text-emerald-300">0° 東南方 (45°斜視角)</strong></span>
+          </div>
+          <div class="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm border border-zinc-800 text-[11px] text-gray-300">
+            <i class="fa-solid fa-hand-pointer text-amber-400 mr-1"></i>滑鼠左鍵可拖曳平移地圖，點擊地塊可直接耕種、餵食與收成
+          </div>
+        </div>
+
+        <!-- Dynamic Selected Tile HUD Card (Hover / Click inspector) -->
+        <div id="tile-inspector" class="absolute bottom-3 left-3 right-3 sm:right-auto sm:w-80 p-3.5 rounded-2xl bg-black/85 backdrop-blur-md border border-emerald-600/50 shadow-2xl z-20 transition-all duration-200">
+          <div class="flex items-start justify-between mb-1.5">
+            <div class="flex items-center gap-2">
+              <span id="inspect-icon" class="text-2xl">🌾</span>
+              <div>
+                <h4 id="inspect-name" class="font-bold text-sm text-white">抗輻小麥 (田塊 #1)</h4>
+                <p id="inspect-category" class="text-[11px] text-emerald-400">農場溫室作物</p>
+              </div>
+            </div>
+            <span id="inspect-tag" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-cyan-300">
+              水分充足
+            </span>
+          </div>
+          <p id="inspect-desc" class="text-xs text-gray-300 mb-2.5">
+            狀態：生長第 2 天。點擊田塊即可進行照料或採集。
+          </p>
+          <div id="inspect-actions" class="flex items-center gap-2">
+            <button id="inspect-btn-main" class="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition active:scale-95">
+              立即操作
+            </button>
+          </div>
+        </div>
+
+        <!-- On-screen Quick Legend (Bottom Right) -->
+        <div class="hidden sm:flex absolute bottom-3 right-3 p-2.5 rounded-xl bg-black/75 backdrop-blur-sm border border-zinc-800 text-[11px] text-gray-400 flex-col gap-1 z-10 pointer-events-none">
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-amber-800/80 border border-amber-500/40 inline-block"></span> 避難農田區</div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-lime-900/80 border border-lime-500/40 inline-block"></span> 變異牧場區</div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-cyan-900/80 border border-cyan-500/40 inline-block"></span> 循環水塔與指揮所</div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-emerald-500/50 border border-emerald-400 inline-block"></span> 淨化綠洲草皮</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 1: 農場 (Farming) -->
+    <section id="tab-farm" class="tab-pane block space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800">
+        <div class="flex items-center gap-2 text-sm">
+          <span class="text-gray-400">農田工具快捷：</span>
+          <button onclick="waterAllFields()" class="px-3 py-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-600/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-shower"></i> 全部澆水 (消耗 1 淨水/格)
+          </button>
+          <button onclick="harvestAllFields()" class="px-3 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/40 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-hand-holding-hand"></i> 一鍵全收穫
+          </button>
+        </div>
+        <div class="text-xs text-gray-400 flex items-center gap-2">
+          <span>庫存種子: </span>
+          <span class="text-emerald-300 font-bold" id="inv-seeds-summary">抗輻小麥: 3 | 淨化漿果: 1</span>
+        </div>
+      </div>
+
+      <!-- Farm Grid (6-8 plots expandable) -->
+      <div id="farm-plots-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- Farm plot cards injected dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 2: 畜牧 (Livestock Ranching) -->
+    <section id="tab-ranch" class="tab-pane hidden space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800">
+        <div class="text-xs sm:text-sm text-gray-300">
+          <i class="fa-solid fa-circle-info text-amber-400 mr-1"></i> 定期餵食變異牲口，可產出珍貴的高蛋白蛋乳與防護羊毛，用於交易所或換取綠洲發展點數。
+        </div>
+        <button onclick="feedAllAnimals()" class="px-3 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-600/40 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-bowl-food"></i> 全部餵食 (需小麥/飼料)
+        </button>
+      </div>
+
+      <!-- Ranch Pens Grid -->
+      <div id="ranch-pens-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Ranch cards dynamically rendered -->
+      </div>
+    </section>
+
+    <!-- TAB 3: 荒野物資回收 (Mini-Game: Scavenger Run) -->
+    <section id="tab-minigame" class="tab-pane hidden space-y-4">
+      <div class="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-zinc-800">
+          <div>
+            <h3 class="text-lg font-black text-amber-400 flex items-center gap-2">
+              <i class="fa-solid fa-satellite-dish"></i> 廢土偵察無人機：物資回收行動
+            </h3>
+            <p class="text-xs text-gray-400 mt-0.5">
+              控制採集機器人左右移動，避開輻射毒桶與酸性閃電，抓取空投物資箱、能量電池與金幣！
+            </p>
+          </div>
+          <!-- High Score & Status -->
+          <div class="flex items-center gap-3">
+            <div class="px-3 py-1 bg-zinc-900 rounded-lg border border-zinc-700 text-xs">
+              歷史最高分: <span id="game-highscore" class="font-bold text-amber-300">0</span>
+            </div>
+            <button id="start-game-btn" onclick="startMiniGame()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-sm shadow-lg shadow-amber-500/20 active:scale-95 transition flex items-center gap-2">
+              <i class="fa-solid fa-play"></i> 開始採集行動
+            </button>
+          </div>
+        </div>
+
+        <!-- Game Canvas Container -->
+        <div class="relative w-full max-w-2xl mx-auto aspect-[16/9] bg-zinc-900 rounded-xl overflow-hidden border border-amber-900/50 shadow-inner">
+          <canvas id="game-canvas" class="w-full h-full block"></canvas>
+          
+          <!-- Game Overlay Screen (Start / Game Over) -->
+          <div id="game-overlay" class="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-10">
+            <div id="overlay-content" class="space-y-3 max-w-md">
+              <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-3xl text-amber-400">
+                <i class="fa-solid fa-robot"></i>
+              </div>
+              <h4 class="text-xl font-black text-white">啟動採集探測行動</h4>
+              <p class="text-xs text-gray-300">
+                使用鍵盤 <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-amber-300">A</kbd> / <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-amber-300">D</kbd> 或 <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-amber-300">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-amber-300">→</kbd> 控制移動，手機玩家可使用下方觸控按鍵。
+              </p>
+              <p class="text-xs text-emerald-400 font-semibold">
+                獎勵：得分可 1:1 兌換為金幣與有機種子禮包！
+              </p>
+              <button onclick="startMiniGame()" class="mt-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-extrabold hover:brightness-110 active:scale-95 transition shadow-lg">
+                立即出發
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile Touch Controller -->
+        <div class="flex items-center justify-center gap-6 mt-4 sm:hidden">
+          <button id="touch-left" class="w-16 h-14 rounded-xl bg-zinc-800 border border-zinc-700 active:bg-amber-500/40 text-2xl text-white flex items-center justify-center shadow-lg active:scale-90 transition">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <span class="text-xs text-gray-500">左右觸控移動</span>
+          <button id="touch-right" class="w-16 h-14 rounded-xl bg-zinc-800 border border-zinc-700 active:bg-amber-500/40 text-2xl text-white flex items-center justify-center shadow-lg active:scale-90 transition">
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: 廢土物資交易所 (Marketplace) -->
+    <section id="tab-market" class="tab-pane hidden space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        
+        <!-- Buy Supplies & Seeds (購買種子與物資) -->
+        <div class="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+            <h3 class="font-extrabold text-base text-yellow-400 flex items-center gap-2">
+              <i class="fa-solid fa-basket-shopping"></i> 物資進貨 (消耗金幣)
+            </h3>
+            <span class="text-xs text-gray-400">避難所黑市每週更新</span>
+          </div>
+
+          <div class="space-y-3" id="market-buy-list">
+            <!-- Buy items rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Sell Harvest & Produce (收購農產牲口製品) -->
+        <div class="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+            <h3 class="font-extrabold text-base text-emerald-400 flex items-center gap-2">
+              <i class="fa-solid fa-hand-holding-dollar"></i> 出售產物 (賺取金幣與生態點)
+            </h3>
+            <span class="text-xs text-gray-400">目前背包存貨</span>
+          </div>
+
+          <div class="space-y-3" id="market-sell-list">
+            <!-- Sell items rendered dynamically -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 5: 環境改造工程 (Terraforming & Upgrades) -->
+    <section id="tab-terra" class="tab-pane hidden space-y-4">
+      <div class="bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950/40 border border-emerald-900/60 rounded-2xl p-5 shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+          <div>
+            <h3 class="text-lg font-black text-emerald-400 flex items-center gap-2">
+              <i class="fa-solid fa-dna"></i> 綠洲生態改造巨型工程
+            </h3>
+            <p class="text-xs text-gray-400 mt-1">
+              投入金幣與生態點數，修復大氣淨化穹頂、安裝土壤濾毒器與水質再生循環塔。
+            </p>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-gray-400">當前綠洲等級</div>
+            <div id="terra-tier-title" class="text-base font-black text-emerald-300">階段 I: 毒素沉降溫室</div>
+          </div>
+        </div>
+
+        <!-- Terraforming Upgrades Grid -->
+        <div id="terra-upgrades-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <!-- Upgrades rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: 越野移動基地與生活艙 (Overland Camper Base & Van Life) -->
+    <section id="tab-camper" class="tab-pane hidden space-y-5">
+      <!-- Section Header -->
+      <div class="bg-gradient-to-r from-zinc-950 via-amber-950/20 to-zinc-900 p-5 rounded-2xl border border-amber-800/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+              <i class="fa-solid fa-truck-pickup mr-1"></i>越野遠征載具整備中
+            </span>
+            <span class="text-xs text-gray-400">末日遊俠·野營生活紀錄</span>
+          </div>
+          <h3 class="text-lg sm:text-xl font-black text-white">移動避難基地與峽谷遠征營地</h3>
+          <p class="text-xs sm:text-sm text-gray-300 max-w-2xl mt-1">
+            這輛經過加固防輻射改裝的重裝四驅越野露營車，是探索荒野、採集深谷淨水與維護心理健康的終極居所。在此可休憩品嚐熱咖啡、打掃清潔生活艙，並深入未被污染的溪谷進行水源採樣！
+          </p>
+        </div>
+        <div class="flex items-center gap-2 bg-black/60 px-4 py-2.5 rounded-xl border border-amber-700/40 text-xs">
+          <i class="fa-solid fa-battery-three-quarters text-emerald-400 text-lg"></i>
+          <div>
+            <div class="text-gray-400">車載電能儲量</div>
+            <div class="font-bold text-amber-300"><span id="camper-battery">92</span>% 太陽能蓄電</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Photo Cards Grid (3 Interactive Scenes) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        <!-- Card 1: 峽谷生態溪流 -->
+        <div class="bg-zinc-900/90 border border-zinc-800 hover:border-emerald-700/60 rounded-2xl overflow-hidden shadow-xl flex flex-col transition group">
+          <div class="relative aspect-video overflow-hidden bg-zinc-950">
+            <img 
+              src="Screenshot 2026-09-23 101654.jpg" 
+              alt="峽谷生態溪流"
+              onerror="this.onerror=null; this.src='https://placehold.co/600x338/1e261d/34d399?text=Canyon+River+Valley';"
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent"></div>
+            <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-sm border border-cyan-500/40 text-cyan-300 text-xs font-bold">
+              <i class="fa-solid fa-water mr-1"></i>勘探點：原始峽谷溪流
+            </span>
+          </div>
+          <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-extrabold text-base text-white flex items-center justify-between">
+                <span>峽谷生態溪流水源</span>
+                <span class="text-xs text-emerald-400 font-semibold">微弱輻射</span>
+              </h4>
+              <p class="text-xs text-gray-400 mt-1 leading-relaxed">
+                穿越險峻的紅石峽谷，發現這條尚未枯竭的高山冰川融水溪流。岸邊生長著珍稀的抗旱耐酸灌木，是避難所珍貴的天然水源與種子來源地。
+              </p>
+            </div>
+            <div class="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2">
+              <span class="text-[11px] text-gray-400">收益：淨水 +8、廢料 +2</span>
+              <button onclick="scavengeRiver()" class="px-3.5 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center gap-1.5">
+                <i class="fa-solid fa-bottle-water"></i> 溪流汲水與採樣
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: 荒野河畔前哨營地 -->
+        <div class="bg-zinc-900/90 border border-zinc-800 hover:border-amber-700/60 rounded-2xl overflow-hidden shadow-xl flex flex-col transition group">
+          <div class="relative aspect-video overflow-hidden bg-zinc-950">
+            <img 
+              src="Screenshot 2026-09-23 101705.jpg" 
+              alt="荒野河畔前哨營地"
+              onerror="this.onerror=null; this.src='https://placehold.co/600x338/262016/fbbf24?text=Overland+Camp+With+Roof+Tent';"
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent"></div>
+            <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-sm border border-amber-500/40 text-amber-300 text-xs font-bold">
+              <i class="fa-solid fa-tent mr-1"></i>前哨站：越野車頂帳營地
+            </span>
+          </div>
+          <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-extrabold text-base text-white flex items-center justify-between">
+                <span>河畔休憩與日誌整理</span>
+                <span class="text-xs text-amber-400 font-semibold">士氣高昂</span>
+              </h4>
+              <p class="text-xs text-gray-400 mt-1 leading-relaxed">
+                在河畔支起折疊桌與卡式爐，煮上一杯香濃的熱咖啡。坐在折疊椅上吹著晚風、紀錄生態日記與拍攝荒野地貌，在車頂帳篷中享受片刻寧靜。
+              </p>
+            </div>
+            <div class="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2">
+              <span class="text-[11px] text-gray-400">效果：全體作物生長加速、生態點 +20</span>
+              <button onclick="restAtCamp()" class="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-black font-extrabold text-xs shadow-md transition active:scale-95 flex items-center gap-1.5">
+                <i class="fa-solid fa-mug-hot"></i> 煮咖啡休憩 (-1淨水)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: 車載生活艙整備 -->
+        <div class="bg-zinc-900/90 border border-zinc-800 hover:border-lime-700/60 rounded-2xl overflow-hidden shadow-xl flex flex-col transition group">
+          <div class="relative aspect-video overflow-hidden bg-zinc-950">
+            <img 
+              src="Screenshot 2026-09-23 101712.jpg" 
+              alt="車載生活艙整備"
+              onerror="this.onerror=null; this.src='https://placehold.co/600x338/192218/a3e635?text=Camper+Van+Interior+Living+Pod';"
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent"></div>
+            <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-sm border border-lime-500/40 text-lime-300 text-xs font-bold">
+              <i class="fa-solid fa-broom mr-1"></i>生活艙：除毒消毒整備
+            </span>
+          </div>
+          <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+            <div>
+              <h4 class="font-extrabold text-base text-white flex items-center justify-between">
+                <span>生活艙清潔與爐具養護</span>
+                <span class="text-xs text-lime-400 font-semibold">潔淨安全</span>
+              </h4>
+              <p class="text-xs text-gray-400 mt-1 leading-relaxed">
+                車內配備有不鏽鋼洗滌槽、雙口瓦斯爐、餐具抽屜與溫馨睡鋪。使用特製除輻射噴霧徹底擦拭檯面與收納箱，確保食物調理過程完全杜絕輻射粉塵污染。
+              </p>
+            </div>
+            <div class="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2">
+              <span class="text-[11px] text-gray-400">收益：金幣 +45、綠洲淨化率 +2%</span>
+              <button onclick="cleanCamperVan()" class="px-3.5 py-2 rounded-xl bg-lime-600 hover:bg-lime-500 text-black font-extrabold text-xs shadow-md transition active:scale-95 flex items-center gap-1.5">
+                <i class="fa-solid fa-spray-can-sparkles"></i> 徹底擦拭生活艙
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Local profile modal -->
+  <div id="auth-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4 z-50 transition-opacity">
+    <div class="bg-zinc-900 border border-zinc-700 w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="text-center space-y-2 mb-6">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-white flex items-center justify-center text-2xl shadow-lg">
+          <!-- Google 'G' Icon SVG -->
+          <svg class="w-7 h-7" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.79l7.97-6.2z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-white">登入倖存者通訊網絡</h3>
+        <p class="text-xs text-gray-400">建立本機玩家檔案；進度會儲存在此瀏覽器</p>
+      </div>
+
+      <!-- Simulated Account Form / Quick Select -->
+      <form onsubmit="handleCustomEmailSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">玩家信箱（僅作本機檔案識別）</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+              <i class="fa-regular fa-envelope"></i>
+            </div>
+            <input id="auth-email-input" type="email" required placeholder="survivor.oasis@gmail.com" 
+              class="w-full bg-zinc-950 border border-zinc-700 rounded-xl py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-300 mb-1">基地指揮官稱號</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+              <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <input id="auth-name-input" type="text" required placeholder="綠洲指揮官 (Alex)" 
+              class="w-full bg-zinc-950 border border-zinc-700 rounded-xl py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-extrabold text-sm hover:brightness-110 active:scale-95 transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+          <i class="fa-brands fa-google"></i>
+          使用本機檔案開始遊戲
+        </button>
+
+        <!-- Fast Demo Profiles -->
+        <div class="pt-3 border-t border-zinc-800">
+          <span class="text-[11px] text-gray-500 block text-center mb-2">或快速使用預設倖存者檔案</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="quickLogin('alex.wasteland@gmail.com', '廢土遊俠·艾利克斯')" class="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-gray-300 border border-zinc-700 text-left truncate">
+              👤 艾利克斯 (遊俠)
+            </button>
+            <button type="button" onclick="quickLogin('dr.elena.bio@gmail.com', '植物學家·艾蓮娜博士')" class="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-gray-300 border border-zinc-700 text-left truncate">
+              🔬 艾蓮娜博士 (學者)
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom In-game Floating Toast Notification -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Plant Selection Dialog Modal -->
+  <div id="plant-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-zinc-900 border border-zinc-700 w-full max-w-sm rounded-2xl shadow-2xl p-5 relative">
+      <button onclick="closePlantModal()" class="absolute top-3 right-3 text-gray-400 hover:text-white">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h3 class="text-base font-bold text-emerald-400 flex items-center gap-2 mb-3">
+        <i class="fa-solid fa-seedling"></i> 選擇種植作物 (第 <span id="target-plot-num"></span> 號農田)
+      </h3>
+      <div id="seed-select-list" class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+        <!-- Seed options rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let audioEnabled = true;
+    let sfxSynth, coinSynth, alertSynth;
+
+    function initAudio() {
+      try {
+        sfxSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.02, decay: 0.1, sustain: 0.2, release: 0.3 }
+        }).toDestination();
+        sfxSynth.volume.value = -10;
+
+        coinSynth = new Tone.MembraneSynth().toDestination();
+        coinSynth.volume.value = -8;
+
+        alertSynth = new Tone.NoiseSynth({
+          noise: { type: 'white' },
+          envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
+        }).toDestination();
+        alertSynth.volume.value = -12;
+      } catch (e) {
+        console.warn("Audio init deferred until user interaction.", e);
+      }
+    }
+
+    function playSound(type) {
+      if (!audioEnabled) return;
+      try {
+        if (Tone.context.state !== 'running') {
+          Tone.start();
+        }
+        if (!sfxSynth) initAudio();
+
+        const now = Tone.now();
+        if (type === 'click') {
+          sfxSynth.triggerAttackRelease("C5", "32n", now);
+        } else if (type === 'plant') {
+          sfxSynth.triggerAttackRelease("E4", "16n", now);
+        } else if (type === 'water') {
+          sfxSynth.triggerAttackRelease("G4", "8n", now);
+        } else if (type === 'harvest') {
+          sfxSynth.triggerAttackRelease(["C5", "E5", "G5"], "16n", now);
+        } else if (type === 'coin') {
+          coinSynth.triggerAttackRelease("B5", "16n", now);
+        } else if (type === 'danger') {
+          alertSynth.triggerAttackRelease("16n", now);
+        } else if (type === 'upgrade') {
+          sfxSynth.triggerAttackRelease(["D4", "G4", "B4", "D5"], "8n", now);
+        }
+      } catch (err) {}
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const icon = document.getElementById('audio-icon');
+      if (audioEnabled) {
+        icon.className = "fa-solid fa-volume-high";
+        showToast("音效已開啟 🔊", "info");
+      } else {
+        icon.className = "fa-solid fa-volume-xmark text-red-400";
+        showToast("音效已靜音 🔇", "info");
+      }
+    }
+
+    /* Catalogs for crops & livestock produce */
+    const CROP_CATALOG = {
+      wheat: { name: '抗輻小麥', icon: '🌾', growthDays: 3, ecoPoints: 10, sellGold: 18 },
+      berries: { name: '淨化野莓', icon: '🫐', growthDays: 4, ecoPoints: 18, sellGold: 32 },
+      corn: { name: '太陽能玉米', icon: '🌽', growthDays: 5, ecoPoints: 25, sellGold: 48 },
+      pumpkin: { name: '巨型南瓜', icon: '🎃', growthDays: 6, ecoPoints: 40, sellGold: 85 }
+    };
+
+    const PRODUCE_CATALOG = {
+      eggs: { name: '高蛋白蛋', icon: '🥚', ecoPoints: 15, sellGold: 25 },
+      wool: { name: '防護羊毛', icon: '🧶', ecoPoints: 25, sellGold: 45 },
+      milk: { name: '生化甘露乳', icon: '🥛', ecoPoints: 35, sellGold: 60 }
+    };
+
+    const gameState = {
+      day: 1,
+      weather: "輻射微雨",
+      weatherIcon: "fa-smog",
+      gold: 400,
+      ecoPoints: 120,
+      water: 30,
+      maxWater: 50,
+      terraProgress: 15,
+      camperBattery: 92,
+      user: {
+        email: "guest.survivor@gmail.com",
+        name: "綠洲見習官",
+        avatar: "https://placehold.co/64x64/047857/ffffff?text=OS"
+      },
+      inventory: {
+        seeds: {
+          wheat: 5,
+          berries: 2,
+          corn: 1,
+          pumpkin: 0
+        },
+        crops: {
+          wheat: 0,
+          berries: 0,
+          corn: 0,
+          pumpkin: 0
+        },
+        produce: {
+          eggs: 0,
+          wool: 0,
+          milk: 0
+        },
+        animalFeed: 6,
+        scrapMetal: 12
+      },
+      plots: [
+        { id: 1, crop: 'wheat', stage: 2, maxStage: 3, watered: true },
+        { id: 2, crop: 'berries', stage: 3, maxStage: 3, watered: true },
+        { id: 3, crop: null, stage: 0, maxStage: 0, watered: false },
+        { id: 4, crop: null, stage: 0, maxStage: 0, watered: false },
+        { id: 5, crop: null, stage: 0, maxStage: 0, watered: false },
+        { id: 6, crop: null, stage: 0, maxStage: 0, watered: false }
+      ],
+      animals: [
+        { id: 'a1', name: '變異輻射雞', type: 'chicken', icon: 'fa-crow', hunger: 80, produceReady: true, yields: 'eggs' },
+        { id: 'a2', name: '廢土絨毛羊', type: 'sheep', icon: 'fa-shield-cat', hunger: 60, produceReady: false, yields: 'wool' },
+        { id: 'a3', name: '再生生化牛', type: 'cow', icon: 'fa-cow', hunger: 40, produceReady: false, yields: 'milk' }
+      ],
+      terraUpgrades: [
+        { id: 'soil_purifier', name: '奈米土壤除毒陣列', costGold: 200, costPoints: 80, level: 1, maxLevel: 5, desc: '作物生長速度提升 25%，每回合自動提供微量淨水。' },
+        { id: 'rain_collector', name: '酸雨分子蒸餾天幕', costGold: 300, costPoints: 120, level: 1, maxLevel: 4, desc: '每日淨水自然回復量 +10，淨水容量上限 +25。' },
+        { id: 'greenhouse_dome', name: '太陽能光合防護穹頂', costGold: 500, costPoints: 200, level: 0, maxLevel: 3, desc: '解鎖稀有作物「巨型淨化南瓜」，環境綠化度大幅躍升。' },
+        { id: 'livestock_shelter', name: '恆溫生物培養艙', costGold: 400, costPoints: 150, level: 0, maxLevel: 3, desc: '牲畜飢餓消耗降低 30%，副產物產量翻倍。' }
+      ],
+      miniGameHighScore: 0
+    };
+
+    const SAVE_KEY = 'eco-oasis-save-v2';
+    function saveGame() {
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(gameState)); }
+      catch (error) { console.warn('無法儲存進度', error); }
+    }
+    function loadGame() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
+        if (!saved || typeof saved !== 'object' || !saved.inventory || !Array.isArray(saved.plots) || !Array.isArray(saved.animals)) return;
+        for (const key of ['day','weather','weatherIcon','gold','ecoPoints','water','maxWater','terraProgress','camperBattery','miniGameHighScore']) {
+          if (typeof saved[key] === typeof gameState[key]) gameState[key] = saved[key];
+        }
+        for (const category of ['seeds','crops','produce']) Object.assign(gameState.inventory[category], saved.inventory[category] || {});
+        for (const key of ['animalFeed','scrapMetal']) if (Number.isFinite(saved.inventory[key])) gameState.inventory[key] = saved.inventory[key];
+        for (const category of ['plots','animals','terraUpgrades']) {
+          const current = gameState[category];
+          for (const item of current) {
+            const previous = saved[category]?.find(entry => entry.id === item.id);
+            if (previous) for (const key of Object.keys(item)) if (key in previous && typeof previous[key] === typeof item[key]) item[key] = previous[key];
+          }
+        }
+        if (saved.user && typeof saved.user.name === 'string' && typeof saved.user.email === 'string') {
+          gameState.user.name = saved.user.name.slice(0, 60);
+          gameState.user.email = saved.user.email.slice(0, 150);
+        }
+      } catch (error) { console.warn('存檔讀取失敗', error); }
+    }
+    loadGame();
+    function updateProfileUI() {
+      document.getElementById('user-display-name').textContent = gameState.user.name;
+      const avatar = document.getElementById('user-avatar');
+      avatar.src = `https://placehold.co/64x64/047857/ffffff?text=${encodeURIComponent(gameState.user.name.slice(0, 2))}`;
+    }
+
+    const isoCanvas = document.getElementById('iso-map-canvas');
+    const isoCtx = isoCanvas.getContext('2d');
+
+    const MAP_SIZE = 10;
+    const mapCamera = {
+      offsetX: 0,
+      offsetY: 0,
+      scale: 1.0,
+      direction: 0,
+      pitchRatio: 0.52,
+      tileWidth: 70,
+      tileHeight: 36,
+      slabDepth: 14,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      hoverTileX: -1,
+      hoverTileY: -1,
+      selectedTile: null
+    };
+
+    const oasisWorldGrid = [];
+    function initOasisGrid() {
+      oasisWorldGrid.length = 0;
+      for (let x = 0; x < MAP_SIZE; x++) {
+        oasisWorldGrid[x] = [];
+        for (let y = 0; y < MAP_SIZE; y++) {
+          oasisWorldGrid[x][y] = { type: 'wasteland', subId: null };
+        }
+      }
+
+      const farmCoords = [
+        { x: 2, y: 2, plotId: 1 },
+        { x: 3, y: 2, plotId: 2 },
+        { x: 2, y: 3, plotId: 3 },
+        { x: 3, y: 3, plotId: 4 },
+        { x: 2, y: 4, plotId: 5 },
+        { x: 3, y: 4, plotId: 6 }
+      ];
+      farmCoords.forEach(c => {
+        oasisWorldGrid[c.x][c.y] = { type: 'farm', plotId: c.plotId };
+      });
+
+      oasisWorldGrid[6][2] = { type: 'ranch', animalId: 'a1' };
+      oasisWorldGrid[6][3] = { type: 'ranch', animalId: 'a2' };
+      oasisWorldGrid[6][4] = { type: 'ranch', animalId: 'a3' };
+
+      oasisWorldGrid[4][4] = { type: 'bunker' };
+      oasisWorldGrid[5][4] = { type: 'watertower' };
+      oasisWorldGrid[4][6] = { type: 'dronepad' };
+      oasisWorldGrid[6][6] = { type: 'market' };
+      oasisWorldGrid[1][5] = { type: 'camper' };
+    }
+    initOasisGrid();
+
+    function setMapDirection(dirIndex) {
+      mapCamera.direction = (dirIndex + 4) % 4;
+      updateMapControlsUI();
+      playSound('click');
+      renderIsoMap();
+    }
+
+    function rotateMapDirection(step) {
+      mapCamera.direction = (mapCamera.direction + step + 4) % 4;
+      updateMapControlsUI();
+      playSound('click');
+      renderIsoMap();
+    }
+
+    function zoomMap(delta) {
+      mapCamera.scale = Math.min(1.8, Math.max(0.65, mapCamera.scale + delta));
+      renderIsoMap();
+    }
+
+    function resetMapCamera() {
+      mapCamera.scale = 1.0;
+      mapCamera.offsetX = 0;
+      mapCamera.offsetY = 0;
+      mapCamera.direction = 0;
+      mapCamera.pitchRatio = 0.52;
+      updateMapControlsUI();
+      playSound('click');
+      renderIsoMap();
+    }
+
+    function toggleMapPitch() {
+      if (mapCamera.pitchRatio > 0.6) {
+        mapCamera.pitchRatio = 0.52;
+        document.getElementById('pitch-btn').innerHTML = '<i class="fa-solid fa-cube mr-1"></i>45°等軸俯角';
+      } else {
+        mapCamera.pitchRatio = 0.75;
+        document.getElementById('pitch-btn').innerHTML = '<i class="fa-solid fa-layer-group mr-1"></i>俯視高角度';
+      }
+      playSound('click');
+      renderIsoMap();
+    }
+
+    function updateMapControlsUI() {
+      const labels = [
+        "0° 東南方 (45°斜視角)",
+        "90° 西南方 (45°斜視角)",
+        "180° 西北方 (45°斜視角)",
+        "270° 東北方 (45°斜視角)"
+      ];
+      document.getElementById('iso-dir-label').innerText = labels[mapCamera.direction];
+      document.getElementById('compass-indicator').style.transform = `rotate(${mapCamera.direction * 90}deg)`;
+
+      for (let i = 0; i < 4; i++) {
+        const btn = document.getElementById(`dir-btn-${i}`);
+        if (i === mapCamera.direction) {
+          btn.className = "px-2 py-1 rounded font-bold bg-emerald-600 text-white transition";
+        } else {
+          btn.className = "px-2 py-1 rounded font-bold text-gray-400 hover:text-white transition";
+        }
+      }
+    }
+
+    function rotateGridCoord(gx, gy, dir) {
+      const N = MAP_SIZE - 1;
+      if (dir === 0) return { rx: gx, ry: gy };
+      if (dir === 1) return { rx: gy, ry: N - gx };
+      if (dir === 2) return { rx: N - gx, ry: N - gy };
+      if (dir === 3) return { rx: N - gy, ry: gx };
+      return { rx: gx, ry: gy };
+    }
+
+    function unrotateGridCoord(rx, ry, dir) {
+      const N = MAP_SIZE - 1;
+      if (dir === 0) return { gx: rx, ry: ry };
+      if (dir === 1) return { gx: N - ry, ry: rx };
+      if (dir === 2) return { gx: N - rx, ry: N - ry };
+      if (dir === 3) return { gx: ry, ry: N - rx };
+      return { gx: rx, ry: gy };
+    }
+
+    function gridToScreen(rx, ry) {
+      const tw = mapCamera.tileWidth * mapCamera.scale;
+      const th = tw * mapCamera.pitchRatio;
+      const originX = isoCanvas.width / 2 + mapCamera.offsetX;
+      const originY = isoCanvas.height * 0.22 + mapCamera.offsetY;
+
+      const sx = originX + (rx - ry) * (tw / 2);
+      const sy = originY + (rx + ry) * (th / 2);
+      return { sx, sy, tw, th };
+    }
+
+    function screenToGrid(mouseX, mouseY) {
+      const tw = mapCamera.tileWidth * mapCamera.scale;
+      const th = tw * mapCamera.pitchRatio;
+      const originX = isoCanvas.width / 2 + mapCamera.offsetX;
+      const originY = isoCanvas.height * 0.22 + mapCamera.offsetY;
+
+      const dx = mouseX - originX;
+      const dy = mouseY - originY;
+
+      const rx = (dx / (tw / 2) + dy / (th / 2)) / 2;
+      const ry = (dy / (th / 2) - dx / (tw / 2)) / 2;
+
+      const intRx = Math.floor(rx);
+      const intRy = Math.floor(ry);
+
+      if (intRx >= 0 && intRx < MAP_SIZE && intRy >= 0 && intRy < MAP_SIZE) {
+        return unrotateGridCoord(intRx, intRy, mapCamera.direction);
+      }
+      return null;
+    }
+
+    const mapParticles = [];
+    for (let p = 0; p < 45; p++) {
+      mapParticles.push({
+        x: Math.random() * 800,
+        y: Math.random() * 600,
+        speed: 3 + Math.random() * 4,
+        length: 8 + Math.random() * 8
+      });
+    }
+
+    function renderWeatherOverlay() {
+      isoCtx.strokeStyle = 'rgba(52, 211, 153, 0.25)';
+      isoCtx.lineWidth = 1;
+      for (let p of mapParticles) {
+        isoCtx.beginPath();
+        isoCtx.moveTo(p.x, p.y);
+        isoCtx.lineTo(p.x - 2, p.y + p.length);
+        isoCtx.stroke();
+
+        p.y += p.speed;
+        p.x -= 0.8;
+        if (p.y > isoCanvas.height) {
+          p.y = -10;
+          p.x = Math.random() * isoCanvas.width;
+        }
+      }
+    }
+
+    function resizeIsoCanvas() {
+      const rect = isoCanvas.getBoundingClientRect();
+      isoCanvas.width = rect.width;
+      isoCanvas.height = rect.height;
+      renderIsoMap();
+    }
+    window.addEventListener('resize', resizeIsoCanvas);
+
+    function renderIsoMap() {
+      if (!isoCtx) return;
+      isoCtx.clearRect(0, 0, isoCanvas.width, isoCanvas.height);
+
+      const bgGrad = isoCtx.createRadialGradient(
+        isoCanvas.width / 2, isoCanvas.height / 2, 40,
+        isoCanvas.width / 2, isoCanvas.height / 2, isoCanvas.width * 0.8
+      );
+      if (gameState.terraProgress > 60) {
+        bgGrad.addColorStop(0, '#102216');
+        bgGrad.addColorStop(1, '#050c07');
+      } else {
+        bgGrad.addColorStop(0, '#191e17');
+        bgGrad.addColorStop(1, '#080a08');
+      }
+      isoCtx.fillStyle = bgGrad;
+      isoCtx.fillRect(0, 0, isoCanvas.width, isoCanvas.height);
+
+      const renderTiles = [];
+      for (let gx = 0; gx < MAP_SIZE; gx++) {
+        for (let gy = 0; gy < MAP_SIZE; gy++) {
+          const { rx, ry } = rotateGridCoord(gx, gy, mapCamera.direction);
+          renderTiles.push({ gx, gy, rx, ry, depth: rx + ry });
+        }
+      }
+      renderTiles.sort((a, b) => a.depth - b.depth);
+
+      renderTiles.forEach(tile => {
+        drawIsometricTile(tile.gx, tile.gy, tile.rx, tile.ry);
+      });
+
+      renderTiles.forEach(tile => {
+        drawTileObject(tile.gx, tile.gy, tile.rx, tile.ry);
+      });
+
+      renderWeatherOverlay();
+    }
+
+    function drawIsometricTile(gx, gy, rx, ry) {
+      const { sx, sy, tw, th } = gridToScreen(rx, ry);
+      const slabH = mapCamera.slabDepth * mapCamera.scale;
+      const tileData = oasisWorldGrid[gx][gy];
+      const isHovered = (mapCamera.hoverTileX === gx && mapCamera.hoverTileY === gy);
+
+      let topColor = '#2b231c';
+      let sideColorL = '#1c1612';
+      let sideColorR = '#140f0c';
+
+      const isPurified = (gameState.terraProgress / 100) > ((gx + gy) / (MAP_SIZE * 2));
+
+      if (tileData.type === 'farm') {
+        topColor = isHovered ? '#613b1c' : '#4d2d14';
+        sideColorL = '#331d0b';
+        sideColorR = '#241407';
+      } else if (tileData.type === 'ranch') {
+        topColor = isHovered ? '#435427' : '#33421e';
+        sideColorL = '#222d13';
+        sideColorR = '#161e0b';
+      } else if (tileData.type === 'bunker' || tileData.type === 'watertower') {
+        topColor = '#1f2d29';
+        sideColorL = '#131e1a';
+        sideColorR = '#0b1411';
+      } else if (isPurified) {
+        topColor = isHovered ? '#1e542c' : '#143c1f';
+        sideColorL = '#0d2814';
+        sideColorR = '#07180b';
+      } else if (isHovered) {
+        topColor = '#3c3228';
+      }
+
+      // Left Slab Face
+      isoCtx.beginPath();
+      isoCtx.moveTo(sx - tw / 2, sy);
+      isoCtx.lineTo(sx, sy + th / 2);
+      isoCtx.lineTo(sx, sy + th / 2 + slabH);
+      isoCtx.lineTo(sx - tw / 2, sy + slabH);
+      isoCtx.closePath();
+      isoCtx.fillStyle = sideColorL;
+      isoCtx.fill();
+
+      // Right Slab Face
+      isoCtx.beginPath();
+      isoCtx.moveTo(sx, sy + th / 2);
+      isoCtx.lineTo(sx + tw / 2, sy);
+      isoCtx.lineTo(sx + tw / 2, sy + slabH);
+      isoCtx.lineTo(sx, sy + th / 2 + slabH);
+      isoCtx.closePath();
+      isoCtx.fillStyle = sideColorR;
+      isoCtx.fill();
+
+      // Top Rhombus Face
+      isoCtx.beginPath();
+      isoCtx.moveTo(sx, sy - th / 2);
+      isoCtx.lineTo(sx + tw / 2, sy);
+      isoCtx.lineTo(sx, sy + th / 2);
+      isoCtx.lineTo(sx - tw / 2, sy);
+      isoCtx.closePath();
+      isoCtx.fillStyle = topColor;
+      isoCtx.fill();
+
+      isoCtx.strokeStyle = isHovered ? '#34d399' : 'rgba(0, 0, 0, 0.4)';
+      isoCtx.lineWidth = isHovered ? 2.5 : 1;
+      isoCtx.stroke();
+    }
+
+    function drawTileObject(gx, gy, rx, ry) {
+      const { sx, sy } = gridToScreen(rx, ry);
+      const tileData = oasisWorldGrid[gx][gy];
+      const s = mapCamera.scale;
+
+      if (tileData.type === 'farm') {
+        const plot = gameState.plots.find(p => p.id === tileData.plotId);
+        if (plot && plot.crop) {
+          const meta = CROP_CATALOG[plot.crop];
+          const isReady = plot.stage >= plot.maxStage;
+          isoCtx.font = `${Math.floor(22 * s)}px Arial`;
+          isoCtx.textAlign = 'center';
+          isoCtx.textBaseline = 'bottom';
+          const bounce = isReady ? Math.sin(Date.now() / 200) * 4 : 0;
+          isoCtx.fillText(isReady ? meta.icon : (plot.stage === 1 ? '🌱' : '🌿'), sx, sy - 4 * s + bounce);
+
+          if (!plot.watered && !isReady) {
+            isoCtx.font = `${Math.floor(12 * s)}px sans-serif`;
+            isoCtx.fillText('💧', sx + 12 * s, sy - 18 * s);
+          } else if (isReady) {
+            isoCtx.font = `${Math.floor(11 * s)}px sans-serif`;
+            isoCtx.fillText('✨', sx - 12 * s, sy - 24 * s);
+          }
+        } else {
+          isoCtx.fillStyle = 'rgba(255,255,255,0.2)';
+          isoCtx.font = `bold ${Math.floor(10 * s)}px 'Chakra Petch'`;
+          isoCtx.textAlign = 'center';
+          isoCtx.fillText(`#${tileData.plotId}`, sx, sy + 2 * s);
+        }
+      } else if (tileData.type === 'ranch') {
+        const animal = gameState.animals.find(a => a.id === tileData.animalId);
+        if (animal) {
+          const animOffset = Math.sin(Date.now() / 800 + gx) * 3 * s;
+          isoCtx.font = `${Math.floor(24 * s)}px sans-serif`;
+          isoCtx.textAlign = 'center';
+          isoCtx.textBaseline = 'bottom';
+          let animalEmoji = '🐔';
+          if (animal.type === 'sheep') animalEmoji = '🐑';
+          if (animal.type === 'cow') animalEmoji = '🐄';
+
+          isoCtx.fillText(animalEmoji, sx + animOffset, sy - 2 * s);
+          if (animal.produceReady) {
+            isoCtx.font = `${Math.floor(12 * s)}px sans-serif`;
+            isoCtx.fillText('🧺', sx + 14 * s, sy - 20 * s);
+          }
+        }
+      } else if (tileData.type === 'bunker') {
+        const domeColor = gameState.terraProgress > 50 ? '#10b981' : '#f59e0b';
+        isoCtx.fillStyle = '#1e293b';
+        isoCtx.beginPath();
+        isoCtx.roundRect(sx - 18 * s, sy - 28 * s, 36 * s, 26 * s, 6 * s);
+        isoCtx.fill();
+        isoCtx.strokeStyle = domeColor;
+        isoCtx.lineWidth = 1.5;
+        isoCtx.stroke();
+
+        isoCtx.fillStyle = gameState.terraProgress > 50 ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.3)';
+        isoCtx.beginPath();
+        isoCtx.arc(sx, sy - 28 * s, 14 * s, Math.PI, 0);
+        isoCtx.fill();
+        isoCtx.stroke();
+
+        isoCtx.font = `${Math.floor(14 * s)}px sans-serif`;
+        isoCtx.textAlign = 'center';
+        isoCtx.fillText('🏛️', sx, sy - 12 * s);
+      } else if (tileData.type === 'watertower') {
+        isoCtx.fillStyle = '#0e7490';
+        isoCtx.fillRect(sx - 10 * s, sy - 34 * s, 20 * s, 28 * s);
+        isoCtx.strokeStyle = '#38bdf8';
+        isoCtx.strokeRect(sx - 10 * s, sy - 34 * s, 20 * s, 28 * s);
+
+        isoCtx.font = `${Math.floor(13 * s)}px sans-serif`;
+        isoCtx.textAlign = 'center';
+        isoCtx.fillText('💧', sx, sy - 16 * s);
+      } else if (tileData.type === 'dronepad') {
+        isoCtx.fillStyle = '#3f3f46';
+        isoCtx.beginPath();
+        isoCtx.ellipse(sx, sy, 18 * s, 10 * s, 0, 0, Math.PI * 2);
+        isoCtx.fill();
+        isoCtx.strokeStyle = '#f59e0b';
+        isoCtx.stroke();
+
+        isoCtx.font = `${Math.floor(16 * s)}px sans-serif`;
+        isoCtx.textAlign = 'center';
+        isoCtx.fillText('🛸', sx, sy - 8 * s + Math.sin(Date.now() / 300) * 3);
+      } else if (tileData.type === 'market') {
+        isoCtx.font = `${Math.floor(22 * s)}px sans-serif`;
+        isoCtx.textAlign = 'center';
+        isoCtx.fillText('⛺', sx, sy - 4 * s);
+      } else if (tileData.type === 'camper') {
+        isoCtx.font = `${Math.floor(22 * s)}px sans-serif`;
+        isoCtx.textAlign = 'center';
+        isoCtx.fillText('🚐', sx, sy - 4 * s);
+        isoCtx.font = `${Math.floor(10 * s)}px sans-serif`;
+        isoCtx.fillText('⛺', sx + 14 * s, sy - 14 * s);
+      }
+    }
+
+    isoCanvas.addEventListener('mousedown', (e) => {
+      mapCamera.isDragging = true;
+      mapCamera.lastMouseX = e.clientX;
+      mapCamera.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      mapCamera.isDragging = false;
+    });
+
+    isoCanvas.addEventListener('mousemove', (e) => {
+      const rect = isoCanvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (mapCamera.isDragging) {
+        const dx = e.clientX - mapCamera.lastMouseX;
+        const dy = e.clientY - mapCamera.lastMouseY;
+        mapCamera.offsetX += dx;
+        mapCamera.offsetY += dy;
+        mapCamera.lastMouseX = e.clientX;
+        mapCamera.lastMouseY = e.clientY;
+        renderIsoMap();
+      } else {
+        const grid = screenToGrid(mouseX, mouseY);
+        if (grid) {
+          mapCamera.hoverTileX = grid.gx;
+          mapCamera.hoverTileY = grid.gy;
+          updateTileInspector(grid.gx, grid.gy);
+        } else {
+          mapCamera.hoverTileX = -1;
+          mapCamera.hoverTileY = -1;
+        }
+      }
+    });
+
+    isoCanvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      zoomMap(e.deltaY > 0 ? -0.1 : 0.1);
+    }, { passive: false });
+
+    function updateTileInspector(gx, gy) {
+      const tile = oasisWorldGrid[gx][gy];
+      if (!tile) return;
+
+      const iconEl = document.getElementById('inspect-icon');
+      const nameEl = document.getElementById('inspect-name');
+      const catEl = document.getElementById('inspect-category');
+      const tagEl = document.getElementById('inspect-tag');
+      const descEl = document.getElementById('inspect-desc');
+      const btnEl = document.getElementById('inspect-btn-main');
+
+      if (tile.type === 'farm') {
+        const plot = gameState.plots.find(p => p.id === tile.plotId);
+        catEl.innerText = `避難農田 (田塊 #${tile.plotId})`;
+        if (plot && plot.crop) {
+          const meta = CROP_CATALOG[plot.crop];
+          iconEl.innerText = meta.icon;
+          nameEl.innerText = meta.name;
+          const isReady = plot.stage >= plot.maxStage;
+          tagEl.innerText = isReady ? "可採收！" : (plot.watered ? "水分充足" : "缺水中");
+          tagEl.className = isReady ? "text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40" : (plot.watered ? "text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/40" : "text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40");
+          descEl.innerText = `作物生長進度：${plot.stage}/${plot.maxStage} 天。點擊地塊可直接灌溉或收穫。`;
+          btnEl.innerText = isReady ? "立即收穫" : (plot.watered ? "已灌溉" : "立即澆水");
+          btnEl.onclick = () => isReady ? harvestPlot(plot.id) : waterPlot(plot.id);
+        } else {
+          iconEl.innerText = "🌱";
+          nameEl.innerText = `空置農田 #${tile.plotId}`;
+          tagEl.innerText = "閒置中";
+          tagEl.className = "text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-gray-400";
+          descEl.innerText = "土壤已深耕完成，隨時可以挑選種子播種。";
+          btnEl.innerText = "選擇種子播種";
+          btnEl.onclick = () => openPlantModal(tile.plotId);
+        }
+      } else if (tile.type === 'ranch') {
+        const animal = gameState.animals.find(a => a.id === tile.animalId);
+        if (animal) {
+          iconEl.innerText = animal.type === 'chicken' ? '🐔' : (animal.type === 'sheep' ? '🐑' : '🐄');
+          nameEl.innerText = animal.name;
+          catEl.innerText = '廢土畜牧區';
+          tagEl.innerText = animal.produceReady ? "有產物可拾取" : `飽食度 ${animal.hunger}%`;
+          tagEl.className = animal.produceReady ? "text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40" : "text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-gray-300";
+          descEl.innerText = `產出：${PRODUCE_CATALOG[animal.yields].name}。點擊地塊可餵食或採集。`;
+          btnEl.innerText = animal.produceReady ? "拾取副產物" : "進行餵食";
+          btnEl.onclick = () => animal.produceReady ? collectProduce(animal.id) : feedAnimal(animal.id);
+        }
+      } else if (tile.type === 'camper') {
+        iconEl.innerText = '🚐';
+        nameEl.innerText = '重裝越野移動生活艙';
+        catEl.innerText = '移動探險營地';
+        tagEl.innerText = '隨時可啟程';
+        tagEl.className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40';
+        descEl.innerText = '配備車頂帳與車載生活廚房，可前往深谷溪流採樣水源與休整。';
+        btnEl.innerText = '進入移動生活艙';
+        btnEl.onclick = () => switchTab('camper');
+      } else if (tile.type === 'market') {
+        iconEl.innerText = '⛺';
+        nameEl.innerText = '廢土商隊交易所';
+        catEl.innerText = '交易黑市';
+        tagEl.innerText = '營業中';
+        tagEl.className = 'text-[10px] px-2 py-0.5 rounded-full bg-yellow-950 text-yellow-300 border border-yellow-500/40';
+        descEl.innerText = '收購農產與畜牧品，並可補充優質種子、高能飼料與純水。';
+        btnEl.innerText = '前往黑市買賣';
+        btnEl.onclick = () => switchTab('market');
+      } else if (tile.type === 'dronepad') {
+        iconEl.innerText = '🛸';
+        nameEl.innerText = '偵察無人機停機坪';
+        catEl.innerText = '物資採集行動';
+        tagEl.innerText = '待命發動';
+        tagEl.className = 'text-[10px] px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-500/40';
+        descEl.innerText = '啟動無人機前往荒野公路採集零件、電池與空投箱！';
+        btnEl.innerText = '啟動無人機小遊戲';
+        btnEl.onclick = () => { switchTab('minigame'); startMiniGame(); };
+      } else if (tile.type === 'bunker' || tile.type === 'watertower') {
+        iconEl.innerText = '🏛️';
+        nameEl.innerText = '綠洲中央防護穹頂';
+        catEl.innerText = '環境改造工程';
+        tagEl.innerText = `淨化率 ${Math.round(gameState.terraProgress)}%`;
+        tagEl.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40';
+        descEl.innerText = '升級土壤濾毒器、大氣淨化器與循環水塔，改善全體生態。';
+        btnEl.innerText = '檢視環境工程';
+        btnEl.onclick = () => switchTab('terra');
+      } else {
+        iconEl.innerText = '🏜️';
+        nameEl.innerText = '未淨化荒原地塊';
+        catEl.innerText = '重度輻射地表';
+        tagEl.innerText = '待綠化';
+        tagEl.className = 'text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400';
+        descEl.innerText = '推進綠洲環境改造工程，綠草與鮮花將逐步蔓延覆蓋此處。';
+        btnEl.innerText = '加速生態建設';
+        btnEl.onclick = () => switchTab('terra');
+      }
+    }
+
+    // Direct Tile Click Interaction
+    isoCanvas.addEventListener('click', (e) => {
+      const rect = isoCanvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const grid = screenToGrid(mouseX, mouseY);
+      if (!grid) return;
+
+      const tile = oasisWorldGrid[grid.gx][grid.gy];
+      if (!tile) return;
+
+      if (tile.type === 'farm') {
+        const plot = gameState.plots.find(p => p.id === tile.plotId);
+        if (plot) {
+          if (!plot.crop) {
+            openPlantModal(plot.id);
+          } else if (plot.stage >= plot.maxStage) {
+            harvestPlot(plot.id);
+          } else if (!plot.watered) {
+            waterPlot(plot.id);
+          } else {
+            showToast(`田塊 #${plot.id} 生長中 (${plot.stage}/${plot.maxStage})，已澆水。`, "info");
+          }
+        }
+      } else if (tile.type === 'ranch') {
+        const animal = gameState.animals.find(a => a.id === tile.animalId);
+        if (animal) {
+          if (animal.produceReady) {
+            collectProduce(animal.id);
+          } else {
+            feedAnimal(animal.id);
+          }
+        }
+      } else if (tile.type === 'dronepad') {
+        switchTab('minigame');
+        startMiniGame();
+      } else if (tile.type === 'market') {
+        switchTab('market');
+      } else if (tile.type === 'camper') {
+        switchTab('camper');
+      } else if (tile.type === 'bunker' || tile.type === 'watertower') {
+        switchTab('terra');
+      }
+      renderIsoMap();
+    });
+
+    function scavengeRiver() {
+      gameState.water = Math.min(gameState.maxWater, gameState.water + 8);
+      gameState.inventory.scrapMetal += 2;
+      gameState.ecoPoints += 15;
+      gameState.terraProgress = Math.min(100, gameState.terraProgress + 1.5);
+
+      playSound('water');
+      showToast("溪流汲水成功！獲得純淨水源 +8 💧、金屬零件 +2 🔩，生態點 +15 🌱", "success");
+      updateUI();
+    }
+
+    function restAtCamp() {
+      if (gameState.water < 1) {
+        showToast("淨水不足，無法煮熱咖啡！", "warning");
+        playSound('danger');
+        return;
+      }
+
+      gameState.water -= 1;
+      gameState.ecoPoints += 20;
+
+      let boosted = 0;
+      gameState.plots.forEach(plot => {
+        if (plot.crop && plot.stage < plot.maxStage) {
+          plot.stage = Math.min(plot.maxStage, plot.stage + 1);
+          boosted++;
+        }
+      });
+
+      playSound('upgrade');
+      showToast(`在營地車頂帳品嚐熱咖啡 ☕，士氣大增！作物生長加速 (+${boosted} 塊田進階)`, "success");
+      updateUI();
+    }
+
+    function cleanCamperVan() {
+      gameState.gold += 45;
+      gameState.ecoPoints += 15;
+      gameState.terraProgress = Math.min(100, gameState.terraProgress + 2);
+
+      playSound('coin');
+      showToast("生活艙徹底擦拭消毒 ✨！室內無輻射污染，獲得金幣 +45 🪙，淨化率 +2%", "success");
+      updateUI();
+    }
+
+    let currentPlantingPlotId = null;
+
+    function openPlantModal(plotId) {
+      currentPlantingPlotId = plotId;
+      document.getElementById('target-plot-num').innerText = plotId;
+      const list = document.getElementById('seed-select-list');
+      list.innerHTML = '';
+
+      Object.entries(gameState.inventory.seeds).forEach(([key, count]) => {
+        const meta = CROP_CATALOG[key];
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-emerald-600 transition";
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">${meta.icon}</span>
+            <div>
+              <div class="font-bold text-sm text-gray-200">${meta.name}</div>
+              <div class="text-xs text-gray-400">成熟期: ${meta.growthDays}天 | 收益: +${meta.ecoPoints}生態點</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-800 text-emerald-400">存量: ${count}</span>
+            <button onclick="plantSeed('${key}')" ${count <= 0 ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg text-xs font-bold transition ${count > 0 ? 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95' : 'bg-zinc-800 text-gray-500 cursor-not-allowed'}">
+              播種
+            </button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+
+      document.getElementById('plant-modal').classList.remove('hidden');
+      document.getElementById('plant-modal').classList.add('flex');
+    }
+
+    function closePlantModal() {
+      document.getElementById('plant-modal').classList.add('hidden');
+      document.getElementById('plant-modal').classList.remove('flex');
+    }
+
+    function plantSeed(cropKey) {
+      if (gameState.inventory.seeds[cropKey] <= 0) {
+        showToast("種子不足！請先前往交易所補充。", "warning");
+        return;
+      }
+      const plot = gameState.plots.find(p => p.id === currentPlantingPlotId);
+      if (!plot) return;
+
+      gameState.inventory.seeds[cropKey]--;
+      plot.crop = cropKey;
+      plot.stage = 1;
+      plot.maxStage = CROP_CATALOG[cropKey].growthDays;
+      plot.watered = true; // Initial watering on sowing
+
+      closePlantModal();
+      playSound('plant');
+      showToast(`已成功播種 ${CROP_CATALOG[cropKey].name}！`, "success");
+      updateUI();
+    }
+
+    function waterPlot(plotId) {
+      const plot = gameState.plots.find(p => p.id === plotId);
+      if (!plot || !plot.crop) return;
+      if (gameState.water < 1) {
+        showToast("純淨水源不足！請等待降水或從交易所購買純水。", "warning");
+        playSound('danger');
+        return;
+      }
+      if (plot.watered) {
+        showToast("此農田今日已充分灌溉。", "info");
+        return;
+      }
+
+      gameState.water--;
+      plot.watered = true;
+      playSound('water');
+      showToast(`田塊 #${plotId} 灌溉完成！`, "success");
+      updateUI();
+    }
+
+    function waterAllFields() {
+      let unwatered = gameState.plots.filter(p => p.crop && !p.watered);
+      if (unwatered.length === 0) {
+        showToast("目前沒有需要灌溉的作物。", "info");
+        return;
+      }
+      if (gameState.water < unwatered.length) {
+        showToast(`淨水不足以澆灌所有作物 (需要 ${unwatered.length} 單位淨水)`, "warning");
+        playSound('danger');
+        return;
+      }
+      gameState.water -= unwatered.length;
+      unwatered.forEach(p => p.watered = true);
+      playSound('water');
+      showToast(`已一鍵澆灌 ${unwatered.length} 塊農田！`, "success");
+      updateUI();
+    }
+
+    function harvestPlot(plotId) {
+      const plot = gameState.plots.find(p => p.id === plotId);
+      if (!plot || !plot.crop || plot.stage < plot.maxStage) return;
+
+      const meta = CROP_CATALOG[plot.crop];
+      gameState.inventory.crops[plot.crop] = (gameState.inventory.crops[plot.crop] || 0) + 1;
+      gameState.ecoPoints += meta.ecoPoints;
+      gameState.terraProgress = Math.min(100, gameState.terraProgress + meta.ecoPoints * 0.05);
+
+      playSound('harvest');
+      showToast(`收穫 ${meta.name}！獲得生態點 +${meta.ecoPoints} 🌱`, "success");
+
+      plot.crop = null;
+      plot.stage = 0;
+      plot.maxStage = 0;
+      plot.watered = false;
+
+      updateUI();
+    }
+
+    function harvestAllFields() {
+      const readyPlots = gameState.plots.filter(p => p.crop && p.stage >= p.maxStage);
+      if (readyPlots.length === 0) {
+        showToast("目前沒有成熟作物可收穫。", "info");
+        return;
+      }
+      let earnedPoints = 0;
+      readyPlots.forEach(p => {
+        const meta = CROP_CATALOG[p.crop];
+        gameState.inventory.crops[p.crop] = (gameState.inventory.crops[p.crop] || 0) + 1;
+        earnedPoints += meta.ecoPoints;
+        p.crop = null;
+        p.stage = 0;
+        p.watered = false;
+      });
+      gameState.ecoPoints += earnedPoints;
+      gameState.terraProgress = Math.min(100, gameState.terraProgress + earnedPoints * 0.05);
+      playSound('harvest');
+      showToast(`一鍵收穫完畢！獲得生態點 +${earnedPoints} 🌱`, "success");
+      updateUI();
+    }
+
+    function renderFarmGrid() {
+      const grid = document.getElementById('farm-plots-grid');
+      grid.innerHTML = '';
+      let readyCount = 0;
+
+      gameState.plots.forEach(plot => {
+        const card = document.createElement('div');
+        card.className = "bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg hover:border-emerald-700/50 transition relative overflow-hidden";
+
+        if (!plot.crop) {
+          card.innerHTML = `
+            <div class="text-center py-6">
+              <div class="w-14 h-14 mx-auto rounded-2xl bg-zinc-800/80 border border-zinc-700 flex items-center justify-center text-2xl text-gray-500 mb-2">
+                <i class="fa-solid fa-plus"></i>
+              </div>
+              <h4 class="font-bold text-sm text-gray-300">田塊 #${plot.id} 空置中</h4>
+              <p class="text-xs text-gray-500 mt-1">土壤已深耕完成，隨時可播種</p>
+            </div>
+            <button onclick="openPlantModal(${plot.id})" class="w-full py-2.5 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition active:scale-95">
+              選擇種子播種
+            </button>
+          `;
+        } else {
+          const meta = CROP_CATALOG[plot.crop];
+          const isReady = plot.stage >= plot.maxStage;
+          if (isReady) readyCount++;
+
+          const percent = Math.min(100, Math.round((plot.stage / plot.maxStage) * 100));
+
+          card.innerHTML = `
+            <div>
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-3xl">${isReady ? meta.icon : (plot.stage === 1 ? '🌱' : '🌿')}</span>
+                  <div>
+                    <h4 class="font-extrabold text-sm text-white">${meta.name}</h4>
+                    <span class="text-[11px] text-gray-400">田塊 #${plot.id}</span>
+                  </div>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded-full ${plot.watered ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' : 'bg-amber-950 text-amber-300 border border-amber-800'}">
+                  ${plot.watered ? '水分充裕' : '缺水乾涸'}
+                </span>
+              </div>
+
+              <div class="my-3 space-y-1">
+                <div class="flex justify-between text-[11px] text-gray-400">
+                  <span>生長進度 (${plot.stage}/${plot.maxStage} 天)</span>
+                  <span class="font-bold ${isReady ? 'text-emerald-400' : 'text-gray-300'}">${isReady ? '可收穫！' : percent + '%'}</span>
+                </div>
+                <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-emerald-600 to-lime-400 transition-all duration-300" style="width: ${percent}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <button onclick="waterPlot(${plot.id})" ${plot.watered || isReady ? 'disabled' : ''} class="py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 ${plot.watered || isReady ? 'bg-zinc-800 text-gray-500 cursor-not-allowed' : 'bg-cyan-950 hover:bg-cyan-900 border border-cyan-700/50 text-cyan-300 active:scale-95'}">
+                <i class="fa-solid fa-droplet"></i> ${plot.watered ? '已澆水' : '澆水 (-1)'}
+              </button>
+              <button onclick="harvestPlot(${plot.id})" ${!isReady ? 'disabled' : ''} class="py-2 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1 ${!isReady ? 'bg-zinc-800 text-gray-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 active:scale-95 animate-pulse'}">
+                <i class="fa-solid fa-hand"></i> 收穫
+              </button>
+            </div>
+          `;
+        }
+        grid.appendChild(card);
+      });
+
+      document.getElementById('count-farm-ready').innerText = readyCount;
+    }
+
+    function renderRanchGrid() {
+      const grid = document.getElementById('ranch-pens-grid');
+      grid.innerHTML = '';
+
+      gameState.animals.forEach(animal => {
+        const card = document.createElement('div');
+        card.className = "bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col justify-between shadow-lg hover:border-amber-700/50 transition";
+        const prod = PRODUCE_CATALOG[animal.yields];
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl bg-amber-950/60 border border-amber-600/40 flex items-center justify-center text-amber-400 text-2xl">
+                <i class="fa-solid ${animal.icon}"></i>
+              </div>
+              <div>
+                <h4 class="font-extrabold text-sm text-gray-100">${animal.name}</h4>
+                <span class="text-[11px] text-gray-400">產出: ${prod.icon} ${prod.name}</span>
+              </div>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded-full ${animal.hunger < 30 ? 'bg-red-950 text-red-400 border border-red-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}">
+              飽食度: ${animal.hunger}%
+            </span>
+          </div>
+
+          <div class="my-3">
+            <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+              <div class="h-full ${animal.hunger < 30 ? 'bg-red-500' : 'bg-amber-400'}" style="width: ${animal.hunger}%"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <button onclick="feedAnimal('${animal.id}')" ${animal.hunger >= 100 ? 'disabled' : ''} class="py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${animal.hunger >= 100 ? 'bg-zinc-800 text-gray-500 cursor-not-allowed' : 'bg-amber-950/80 hover:bg-amber-800 text-amber-200 border border-amber-600/40 active:scale-95'}">
+              <i class="fa-solid fa-wheat-awn"></i> 餵食 (1飼料/小麥)
+            </button>
+            <button onclick="collectProduce('${animal.id}')" ${!animal.produceReady ? 'disabled' : ''} class="py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition ${!animal.produceReady ? 'bg-zinc-800 text-gray-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/40 active:scale-95 animate-pulse'}">
+              <i class="fa-solid fa-basket-shopping"></i> 拾取產物
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function feedAnimal(animalId) {
+      const animal = gameState.animals.find(a => a.id === animalId);
+      if (!animal) return;
+
+      if (gameState.inventory.animalFeed > 0) {
+        gameState.inventory.animalFeed--;
+      } else if (gameState.inventory.crops.wheat > 0) {
+        gameState.inventory.crops.wheat--;
+      } else {
+        showToast("飼料不足！可在交易所購買飼料或消耗抗輻小麥。", "warning");
+        playSound('danger');
+        return;
+      }
+
+      animal.hunger = Math.min(100, animal.hunger + 35);
+      animal.produceReady = true;
+      playSound('harvest');
+      showToast(`餵食成功！${animal.name} 活力充沛，產物已就緒 🐾`, "success");
+      updateUI();
+    }
+
+    function feedAllAnimals() {
+      let needed = gameState.animals.filter(a => a.hunger < 100);
+      if (needed.length === 0) {
+        showToast("所有牲口都處於吃飽狀態！", "info");
+        return;
+      }
+      let availableFeed = gameState.inventory.animalFeed + gameState.inventory.crops.wheat;
+      if (availableFeed < needed.length) {
+        showToast(`飼料不夠餵食全部牲畜 (需 ${needed.length} 份)`, "warning");
+        playSound('danger');
+        return;
+      }
+
+      needed.forEach(a => {
+        if (gameState.inventory.animalFeed > 0) {
+          gameState.inventory.animalFeed--;
+        } else {
+          gameState.inventory.crops.wheat--;
+        }
+        a.hunger = 100;
+        a.produceReady = true;
+      });
+
+      playSound('harvest');
+      showToast(`已一鍵餵飽全體牲口！產物均已就緒。`, "success");
+      updateUI();
+    }
+
+    function collectProduce(animalId) {
+      const animal = gameState.animals.find(a => a.id === animalId);
+      if (!animal || !animal.produceReady) return;
+
+      const prodMeta = PRODUCE_CATALOG[animal.yields];
+      gameState.inventory.produce[animal.yields] = (gameState.inventory.produce[animal.yields] || 0) + 1;
+      gameState.ecoPoints += prodMeta.ecoPoints;
+      animal.produceReady = false;
+
+      playSound('coin');
+      showToast(`拾取 ${prodMeta.name}！生態點 +${prodMeta.ecoPoints} 🌱`, "success");
+      updateUI();
+    }
+
+    function renderMarket() {
+      const buyContainer = document.getElementById('market-buy-list');
+      buyContainer.innerHTML = '';
+
+      const buyItems = [
+        { type: 'seed', key: 'wheat', name: '抗輻小麥種子 x3', price: 35, icon: '🌾', giveCount: 3 },
+        { type: 'seed', key: 'berries', name: '淨化漿果種子 x2', price: 50, icon: '🫐', giveCount: 2 },
+        { type: 'seed', key: 'corn', name: '太陽能玉米種子 x1', price: 40, icon: '🌽', giveCount: 1 },
+        { type: 'seed', key: 'pumpkin', name: '巨型南瓜種子 x1', price: 75, icon: '🎃', giveCount: 1 },
+        { type: 'item', key: 'animalFeed', name: '特級高能複合飼料 x4', price: 45, icon: '🥣', giveCount: 4 },
+        { type: 'item', key: 'water', name: '深井過濾純水桶 (淨水+15)', price: 40, icon: '🚰', giveCount: 15 }
+      ];
+
+      buyItems.forEach(item => {
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-yellow-700/50 transition";
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">${item.icon}</span>
+            <div>
+              <div class="font-bold text-sm text-gray-200">${item.name}</div>
+              <div class="text-xs text-yellow-400 font-semibold flex items-center gap-1">
+                <i class="fa-solid fa-coins"></i> ${item.price} 金幣
+              </div>
+            </div>
+          </div>
+          <button onclick="buyMarketItem('${item.type}', '${item.key}', ${item.price}, ${item.giveCount})" class="px-3.5 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold text-xs shadow-md transition active:scale-95">
+            購買
+          </button>
+        `;
+        buyContainer.appendChild(row);
+      });
+
+      const sellContainer = document.getElementById('market-sell-list');
+      sellContainer.innerHTML = '';
+
+      const sellableList = [];
+      Object.entries(gameState.inventory.crops).forEach(([k, qty]) => {
+        if (qty > 0) sellableList.push({ category: 'crop', key: k, qty, meta: CROP_CATALOG[k] });
+      });
+      Object.entries(gameState.inventory.produce).forEach(([k, qty]) => {
+        if (qty > 0) sellableList.push({ category: 'produce', key: k, qty, meta: PRODUCE_CATALOG[k] });
+      });
+
+      if (sellableList.length === 0) {
+        sellContainer.innerHTML = `
+          <div class="text-center py-8 text-gray-500 text-xs">
+            <i class="fa-solid fa-box-open text-2xl mb-2 block"></i>
+            背包中尚無可出售的農作物或畜牧品。<br>去耕種或餵養牲口再來吧！
+          </div>
+        `;
+      } else {
+        sellableList.forEach(item => {
+          const row = document.createElement('div');
+          row.className = "flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-emerald-700/50 transition";
+          row.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">${item.meta.icon}</span>
+              <div>
+                <div class="font-bold text-sm text-gray-200">${item.meta.name} (存量: ${item.qty})</div>
+                <div class="text-xs text-emerald-400 font-semibold">
+                  單價: 🪙 ${item.meta.sellGold} 金幣
+                </div>
+              </div>
+            </div>
+            <button onclick="sellInventoryItem('${item.category}', '${item.key}')" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition active:scale-95">
+              出售 1 件 (+${item.meta.sellGold}🪙)
+            </button>
+          `;
+          sellContainer.appendChild(row);
+        });
+      }
+    }
+
+    function buyMarketItem(type, key, price, giveCount) {
+      if (gameState.gold < price) {
+        showToast("金幣不足！可玩採集小遊戲或出售產物賺取金幣。", "warning");
+        playSound('danger');
+        return;
+      }
+      gameState.gold -= price;
+      if (type === 'seed') {
+        gameState.inventory.seeds[key] = (gameState.inventory.seeds[key] || 0) + giveCount;
+      } else if (type === 'item') {
+        if (key === 'water') {
+          gameState.water = Math.min(gameState.maxWater, gameState.water + giveCount);
+        } else {
+          gameState.inventory[key] = (gameState.inventory[key] || 0) + giveCount;
+        }
+      }
+      playSound('coin');
+      showToast(`成功採購物資！消耗 ${price} 金幣`, "success");
+      updateUI();
+    }
+
+    function sellInventoryItem(category, key) {
+      let meta, stock;
+      if (category === 'crop') {
+        meta = CROP_CATALOG[key];
+        stock = gameState.inventory.crops[key];
+        if (stock > 0) {
+          gameState.inventory.crops[key]--;
+          gameState.gold += meta.sellGold;
+        }
+      } else {
+        meta = PRODUCE_CATALOG[key];
+        stock = gameState.inventory.produce[key];
+        if (stock > 0) {
+          gameState.inventory.produce[key]--;
+          gameState.gold += meta.sellGold;
+        }
+      }
+      if (!stock) { showToast("庫存不足", "warning"); return; }
+      playSound('coin');
+      showToast(`售出 1 件 ${meta.name}，獲得 +${meta.sellGold} 金幣 🪙`, "success");
+      updateUI();
+    }
+
+    function renderTerraUpgrades() {
+      const grid = document.getElementById('terra-upgrades-grid');
+      grid.innerHTML = '';
+
+      gameState.terraUpgrades.forEach(upg => {
+        const card = document.createElement('div');
+        const isMax = upg.level >= upg.maxLevel;
+        card.className = "bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col justify-between space-y-3";
+        
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h4 class="font-bold text-sm text-emerald-300">${upg.name}</h4>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-800 text-gray-300">
+                Lv.${upg.level}/${upg.maxLevel}
+              </span>
+            </div>
+            <p class="text-xs text-gray-400">${upg.desc}</p>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-zinc-900">
+            <div class="text-xs font-bold text-yellow-400">
+              ${isMax ? '<span class="text-emerald-400">★ 已達最高階 ★</span>' : `需求: 🪙${upg.costGold} | 🌱${upg.costPoints}`}
+            </div>
+            <button onclick="upgradeTerraProject('${upg.id}')" ${isMax ? 'disabled' : ''} class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${isMax ? 'bg-zinc-800 text-gray-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:scale-95'}">
+              ${isMax ? '已完成' : '投入重構升級'}
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function upgradeTerraProject(upgId) {
+      const upg = gameState.terraUpgrades.find(u => u.id === upgId);
+      if (!upg || upg.level >= upg.maxLevel) return;
+
+      if (gameState.gold < upg.costGold || gameState.ecoPoints < upg.costPoints) {
+        showToast("資源不足！需要相應的金幣與生態改造點數。", "warning");
+        playSound('danger');
+        return;
+      }
+
+      gameState.gold -= upg.costGold;
+      gameState.ecoPoints -= upg.costPoints;
+      upg.level++;
+      gameState.terraProgress = Math.min(100, gameState.terraProgress + 12);
+
+      if (upg.id === 'rain_collector') {
+        gameState.maxWater += 25;
+        gameState.water = gameState.maxWater;
+      }
+
+      playSound('upgrade');
+      showToast(`綠洲設施 [${upg.name}] 成功升級至 Lv.${upg.level}！環境淨化度大幅提升！`, "success");
+      updateUI();
+    }
+
+    function advanceDay() {
+      gameState.day++;
+      
+      const weathers = [
+        { name: '輻射酸雨 (降水充足但微毒)', icon: 'fa-smog', waterGain: 12 },
+        { name: '溫室微風 (極適作物生長)', icon: 'fa-sun', waterGain: 6 },
+        { name: '毒素粉塵暴 (牲口較易飢餓)', icon: 'fa-wind', waterGain: 3 },
+        { name: '純淨甘霖 (大幅淨化土壤)', icon: 'fa-cloud-showers-heavy', waterGain: 18 }
+      ];
+      const selectedWeather = weathers[Math.floor(Math.random() * weathers.length)];
+      gameState.weather = selectedWeather.name;
+      gameState.weatherIcon = selectedWeather.icon;
+
+      gameState.water = Math.min(gameState.maxWater, gameState.water + selectedWeather.waterGain);
+
+      gameState.plots.forEach(plot => {
+        if (plot.crop) {
+          if (plot.watered) {
+            plot.stage = Math.min(plot.maxStage, plot.stage + 1);
+            plot.watered = false;
+          }
+        }
+      });
+
+      gameState.animals.forEach(animal => {
+        animal.hunger = Math.max(0, animal.hunger - 25);
+        if (animal.hunger > 40) {
+          animal.produceReady = true;
+        }
+      });
+
+      playSound('upgrade');
+      showToast(`第 ${gameState.day} 天黎明降臨！天候：${gameState.weather}，自然補充淨水 +${selectedWeather.waterGain} 💧`, "info");
+      updateUI();
+    }
+
+    function updateUI() {
+      document.getElementById('ui-gold').innerText = gameState.gold;
+      document.getElementById('ui-eco-points').innerText = gameState.ecoPoints;
+      document.getElementById('ui-water').innerText = `${gameState.water}/${gameState.maxWater}`;
+      document.getElementById('ui-day-count').innerText = gameState.day;
+      document.getElementById('ui-weather').innerHTML = `<i class="fa-solid ${gameState.weatherIcon} mr-1"></i>${gameState.weather}`;
+
+      const roundedTerra = Math.round(gameState.terraProgress);
+      document.getElementById('ui-terra-bar').style.width = `${roundedTerra}%`;
+      document.getElementById('ui-terra-percent').innerText = `${roundedTerra}%`;
+
+      const envBadge = document.getElementById('env-badge');
+      const envHeadline = document.getElementById('env-headline');
+      const terraTierTitle = document.getElementById('terra-tier-title');
+
+      if (gameState.terraProgress < 30) {
+        envBadge.className = "px-2.5 py-0.5 text-xs font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40";
+        envBadge.innerHTML = '<i class="fa-solid fa-biohazard mr-1"></i>廢土一級重度污染';
+        envHeadline.innerText = "啟動重構協定：淨化土壤與水源，開闢第一片溫室";
+        terraTierTitle.innerText = "階段 I: 毒素沉降溫室";
+      } else if (gameState.terraProgress < 75) {
+        envBadge.className = "px-2.5 py-0.5 text-xs font-bold rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40";
+        envBadge.innerHTML = '<i class="fa-solid fa-seedling mr-1"></i>二級生態復甦雛形';
+        envHeadline.innerText = "大氣防護天幕已啟動，植被生長速度翻倍！";
+        terraTierTitle.innerText = "階段 II: 淨化生命穹頂";
+      } else {
+        envBadge.className = "px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        envBadge.innerHTML = '<i class="fa-solid fa-earth-americas mr-1"></i>三級綠洲成熟體';
+        envHeadline.innerText = "綠洲重構全面成功：重現純淨大地，建立繁盛永續家園！";
+        terraTierTitle.innerText = "階段 III: 恆定生態烏托邦";
+      }
+
+      document.getElementById('inv-seeds-summary').innerText = 
+        `抗輻小麥: ${gameState.inventory.seeds.wheat} | 淨化漿果: ${gameState.inventory.seeds.berries} | 玉米: ${gameState.inventory.seeds.corn} | 南瓜: ${gameState.inventory.seeds.pumpkin}`;
+
+      renderFarmGrid();
+      renderRanchGrid();
+      renderMarket();
+      renderTerraUpgrades();
+      renderIsoMap();
+      saveGame();
+    }
+
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    let gameLoopId = null;
+    let gameActive = false;
+
+    const playerDrone = {
+      x: 300,
+      y: 320,
+      width: 48,
+      height: 36,
+      speed: 7,
+      dx: 0
+    };
+
+    let fallingItems = [];
+    let gameScore = 0;
+    let gameTimer = 25;
+    let lastSpawnTime = 0;
+    let lastTimerTick = 0;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      playerDrone.y = canvas.height - 50;
+      if (playerDrone.x > canvas.width) playerDrone.x = canvas.width / 2;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function startMiniGame() {
+      resizeCanvas();
+      gameActive = true;
+      gameScore = 0;
+      gameTimer = 25;
+      fallingItems = [];
+      playerDrone.x = canvas.width / 2 - 24;
+      document.getElementById('game-overlay').classList.add('hidden');
+
+      lastSpawnTime = performance.now();
+      lastTimerTick = performance.now();
+
+      if (gameLoopId) cancelAnimationFrame(gameLoopId);
+      gameLoopId = requestAnimationFrame(miniGameLoop);
+      playSound('click');
+    }
+
+    function spawnGameItem() {
+      const types = [
+        { type: 'coin', symbol: '🪙', points: 15, isHazard: false, speed: 3.5 },
+        { type: 'battery', symbol: '🔋', points: 25, isHazard: false, speed: 4 },
+        { type: 'seedbox', symbol: '📦', points: 30, isHazard: false, speed: 3 },
+        { type: 'barrel', symbol: '☣️', points: -20, isHazard: true, speed: 4.8 }
+      ];
+      const chosen = types[Math.floor(Math.random() * types.length)];
+      fallingItems.push({
+        ...chosen,
+        x: Math.random() * (canvas.width - 40) + 10,
+        y: -30,
+        size: 28
+      });
+    }
+
+    function miniGameLoop(timestamp) {
+      if (!gameActive) return;
+
+      if (timestamp - lastTimerTick >= 1000) {
+        gameTimer--;
+        lastTimerTick = timestamp;
+        if (gameTimer <= 0) {
+          endMiniGame();
+          return;
+        }
+      }
+
+      if (timestamp - lastSpawnTime > 650) {
+        spawnGameItem();
+        lastSpawnTime = timestamp;
+      }
+
+      playerDrone.x += playerDrone.dx;
+      if (playerDrone.x < 10) playerDrone.x = 10;
+      if (playerDrone.x > canvas.width - playerDrone.width - 10) {
+        playerDrone.x = canvas.width - playerDrone.width - 10;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#0c100d";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(16, 185, 129, 0.12)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+
+      for (let i = fallingItems.length - 1; i >= 0; i--) {
+        const item = fallingItems[i];
+        item.y += item.speed;
+
+        ctx.font = "24px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(item.symbol, item.x, item.y);
+
+        if (
+          item.x + 15 > playerDrone.x &&
+          item.x - 15 < playerDrone.x + playerDrone.width &&
+          item.y + 15 > playerDrone.y &&
+          item.y - 15 < playerDrone.y + playerDrone.height
+        ) {
+          if (item.isHazard) {
+            gameScore = Math.max(0, gameScore + item.points);
+            playSound('danger');
+          } else {
+            gameScore += item.points;
+            playSound('coin');
+          }
+          fallingItems.splice(i, 1);
+          continue;
+        }
+
+        if (item.y > canvas.height + 40) {
+          fallingItems.splice(i, 1);
+        }
+      }
+
+      ctx.fillStyle = "#10B981";
+      ctx.shadowColor = "#34D399";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.roundRect(playerDrone.x, playerDrone.y, playerDrone.width, playerDrone.height, 8);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = "#047857";
+      ctx.fillRect(playerDrone.x + 8, playerDrone.y + 8, playerDrone.width - 16, 8);
+      ctx.fillStyle = "#FBBF24";
+      ctx.beginPath();
+      ctx.arc(playerDrone.x + playerDrone.width / 2, playerDrone.y + 24, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 14px 'Chakra Petch'";
+      ctx.textAlign = "left";
+      ctx.fillText(`時間剩餘: ${gameTimer} 秒`, 15, 25);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#FBBF24";
+      ctx.fillText(`回收積分: ${gameScore}`, canvas.width - 15, 25);
+
+      gameLoopId = requestAnimationFrame(miniGameLoop);
+    }
+
+    function endMiniGame() {
+      gameActive = false;
+      if (gameLoopId) cancelAnimationFrame(gameLoopId);
+
+      const rewardedGold = Math.floor(gameScore * 1.2);
+      const rewardedEco = Math.floor(gameScore * 0.4);
+      gameState.gold += rewardedGold;
+      gameState.ecoPoints += rewardedEco;
+      gameState.inventory.seeds.wheat += 2;
+      gameState.inventory.animalFeed += 1;
+
+      if (gameScore > gameState.miniGameHighScore) {
+        gameState.miniGameHighScore = gameScore;
+        document.getElementById('game-highscore').innerText = gameScore;
+      }
+
+      const overlay = document.getElementById('game-overlay');
+      const content = document.getElementById('overlay-content');
+      content.innerHTML = `
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-3xl text-emerald-400">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <h4 class="text-xl font-black text-white">採集任務圓滿完成！</h4>
+        <div class="p-3 bg-zinc-900 rounded-xl border border-zinc-800 text-left text-xs space-y-1 my-2">
+          <div class="text-yellow-400 font-bold">獲得金幣獎勵: +${rewardedGold} 🪙</div>
+          <div class="text-emerald-400 font-bold">獲得生態改造點: +${rewardedEco} 🌱</div>
+          <div class="text-blue-400">額外物資：抗輻小麥種子 x2, 牲畜飼料 x1 📦</div>
+        </div>
+        <button onclick="startMiniGame()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-extrabold hover:brightness-110 active:scale-95 transition shadow-lg">
+          再玩一次
+        </button>
+      `;
+      overlay.classList.remove('hidden');
+
+      playSound('upgrade');
+      showToast(`採集完成！結算獲得 ${rewardedGold} 金幣與豐厚物資！`, "success");
+      updateUI();
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (!gameActive) return;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        playerDrone.dx = -playerDrone.speed;
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        playerDrone.dx = playerDrone.speed;
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'a' || e.key === 'd' || e.key === 'A' || e.key === 'D') {
+        playerDrone.dx = 0;
+      }
+    });
+
+    const btnLeft = document.getElementById('touch-left');
+    const btnRight = document.getElementById('touch-right');
+    if (btnLeft && btnRight) {
+      btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); playerDrone.dx = -playerDrone.speed; });
+      btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); playerDrone.dx = 0; });
+      btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); playerDrone.dx = playerDrone.speed; });
+      btnRight.addEventListener('touchend', (e) => { e.preventDefault(); playerDrone.dx = 0; });
+    }
+
+    function openAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function handleCustomEmailSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email-input').value.trim();
+      const name = document.getElementById('auth-name-input').value.trim();
+      if (!email || !name) return;
+
+      applyLoginProfile(email, name);
+    }
+
+    function quickLogin(email, name) {
+      applyLoginProfile(email, name);
+    }
+
+    function applyLoginProfile(email, name) {
+      gameState.user.email = email;
+      gameState.user.name = name;
+      const initials = name.slice(0, 2);
+      gameState.user.avatar = `https://placehold.co/64x64/047857/ffffff?text=${encodeURIComponent(initials)}`;
+
+      document.getElementById('user-display-name').innerText = name;
+      document.getElementById('user-avatar').src = gameState.user.avatar;
+      
+      closeAuthModal();
+      playSound('upgrade');
+      saveGame();
+      showToast(`已切換本機玩家檔案：${name}`, "success");
+    }
+
+    function switchTab(tabId) {
+      playSound('click');
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-emerald-600/20', 'border-emerald-500/40', 'text-emerald-300');
+        btn.classList.add('bg-zinc-900', 'border-zinc-800', 'text-gray-400');
+      });
+
+      const targetPane = document.getElementById(`tab-${tabId}`);
+      if (targetPane) targetPane.classList.remove('hidden');
+
+      const activeBtn = document.getElementById(`tab-${tabId}-btn`);
+      if (activeBtn) {
+        activeBtn.classList.add('active', 'bg-emerald-600/20', 'border-emerald-500/40', 'text-emerald-300');
+        activeBtn.classList.remove('bg-zinc-900', 'border-zinc-800', 'text-gray-400');
+      }
+
+      if (tabId === 'minigame') {
+        resizeCanvas();
+      } else if (tabId === 'map') {
+        resizeIsoCanvas();
+      }
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let borderCol = "border-emerald-500/50 text-emerald-300";
+      if (type === "warning") borderCol = "border-amber-500/50 text-amber-300";
+      if (type === "danger") borderCol = "border-red-500/50 text-red-300";
+
+      toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-xl bg-zinc-900/95 border ${borderCol} shadow-2xl backdrop-blur-md text-xs font-semibold transform transition-all duration-300 translate-y-4 opacity-0`;
+      const span = document.createElement("span");
+      span.textContent = message;
+      toast.appendChild(span);
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-x-4');
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    function isoMapAnimationLoop() {
+      renderIsoMap();
+      requestAnimationFrame(isoMapAnimationLoop);
+    }
+
+    window.onload = function () {
+      initAudio();
+      updateProfileUI();
+      updateUI();
+      resizeCanvas();
+      resizeIsoCanvas();
+      requestAnimation(isoMapAnimationLoop);
+      showToast("歡迎來到末日綠洲避難所！進度會自動儲存在這個瀏覽器。", "info");
+    };
+  </script>
+</body>
+</html>
